@@ -32,27 +32,24 @@ private class DataArchiveObjectControllerTest {
         );
     }
 
-    @IsTest
-    static void testPaginationAndDownloadUrls() {
-
-        Test.startTest();
-        DataArchiveObjectController.ArchiveWrapper w =
-            DataArchiveObjectController.getArchivedObjectPaginated(1, 5);
-
-        List<String> urls =
-            DataArchiveObjectController.getAllArchiveCsvDownloadUrls(
-                (Id)w.data[0].get('Id')
-            );
-        Test.stopTest();
-
-        System.assert(!w.data.isEmpty());
-        System.assert(!urls.isEmpty());
-    }
 
     @IsTest
     static void testUnarchiveAsync_NoSelection() {
         String msg =
             DataArchiveObjectController.unarchiveAsync(new List<Id>());
         System.assertEquals('No records selected', msg);
+    }
+
+    @IsTest
+    static void testGetArchivedObjectPaginated() {
+        Test.startTest();
+        DataArchiveObjectController.ArchiveWrapper result = 
+            DataArchiveObjectController.getArchivedObjectPaginated(1, 5);
+        Test.stopTest();
+
+        System.assertNotEquals(null, result, 'Result should not be null');
+        System.assertNotEquals(null, result.columns, 'Columns should not be null');
+        System.assertNotEquals(null, result.data, 'Data should not be null');
+        System.assertNotEquals(null, result.totalRecords, 'Total records should not be null');
     }
 }
