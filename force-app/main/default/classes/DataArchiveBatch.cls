@@ -1,20 +1,20 @@
 public class DataArchiveBatch implements Database.Batchable<SObject>, Database.Stateful {
-    
+
     // ===================== CONSTANTS =====================
     private static final Integer MAX_CSV_SIZE_BYTES = 6 * 1024 * 10; // 60 KB (6*1024*10)
-    
+
     // ===================== STATE VARIABLES =====================
     private String objectName;
     private List<String> fields;
     private String soqlQuery;
     private Id archiveRecordId;
     private String archiveRecordName;
-    
+
     // CSV accumulation across batches
     private String currentCsv;
     private Integer partNumber = 1;
     private String header;
-    
+
     // ===================== CONSTRUCTOR =====================
     public DataArchiveBatch(String objectName, String fieldsCsv, String soqlQuery) {
         this.objectName = objectName;
@@ -25,7 +25,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         this.header = String.join(this.fields, ',') + '\n';
         this.currentCsv = this.header;
     }
-    
+
     // ===================== START METHOD =====================
     public Database.QueryLocator start(Database.BatchableContext bc) {
         // Create Data Archive record at start
@@ -35,7 +35,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             Status__c = 'Archive In Progress'
         );
         insert archiveRecord;
-        
+
         // Re-query to get auto-number Name
         archiveRecord = [
             SELECT Id, Name
@@ -43,17 +43,17 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             WHERE Id = :archiveRecord.Id
             LIMIT 1
         ];
-        
+
         this.archiveRecordId = archiveRecord.Id;
         this.archiveRecordName = archiveRecord.Name;
-        
+
         return Database.getQueryLocator(this.soqlQuery);
     }
-    
+
     // ===================== EXECUTE METHOD =====================
     public void execute(Database.BatchableContext bc, List<SObject> scope) {
         if (scope.isEmpty()) return;
-        
+
         List<String> csvLines = buildCsvLines(scope, this.fields);
         
         for (String line : csvLines) {
@@ -62,9 +62,9 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
                 System.debug('Warning: Single record exceeds CSV size limit, skipping.');
                 continue;
             }
-            
+
             String tentativeCsv = this.currentCsv + line + '\n';
-            
+
             // If limit exceeded → save previous CSV
             if (Blob.valueOf(tentativeCsv).size() > MAX_CSV_SIZE_BYTES) {
                 saveCsvFile(this.currentCsv, this.partNumber);
@@ -75,29 +75,35 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             }
         }
     }
-    
+
     // ===================== FINISH METHOD =====================
     public void finish(Database.BatchableContext bc) {
         // Save any remaining CSV data
         if (this.currentCsv != this.header) {
             saveCsvFile(this.currentCsv, this.partNumber);
         }
-        
-        // Update archive record status
-        Data_Archive__c archiveRecord = new Data_Archive__c(
-            Id = this.archiveRecordId,
+
+        update new Data_Archive__c(
+            Id = archiveRecordId,
             Status__c = 'Ready for Unarchive'
-            
         );
-        update archiveRecord;
-        
-        // Delete archived records (optional - uncomment if needed)
-        Database.executeBatch(new DeleteArchivedRecordsBatch(this.soqlQuery), 2000);
+
+        List<Id> ids = new List<Id>();
+        for (SObject s : Database.query(this.soqlQuery)) {
+            ids.add(s.Id);
+        }
+
+        if (!ids.isEmpty()) {
+            System.enqueueJob(
+                new CascadeDeleteQueueable(objectName, ids)
+            );
+        }
     }
-    
+
     // ===================== HELPER METHODS =====================
-    
+
     private void saveCsvFile(String csvData, Integer partNum) {
+
         ContentVersion cv = new ContentVersion(
             Title = this.archiveRecordName,
             PathOnClient = this.archiveRecordName + '.csv',
@@ -105,14 +111,14 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             VersionData = Blob.valueOf(csvData)
         );
         insert cv;
-        
+
         ContentVersion insertedCv = [
             SELECT ContentDocumentId
             FROM ContentVersion
             WHERE Id = :cv.Id
             LIMIT 1
         ];
-        
+
         insert new ContentDocumentLink(
             ContentDocumentId = insertedCv.ContentDocumentId,
             LinkedEntityId = this.archiveRecordId,
@@ -120,10 +126,10 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             Visibility = 'AllUsers'
         );
     }
-    
+
     private static List<String> buildCsvLines(List<SObject> rows, List<String> fields) {
         List<String> lines = new List<String>();
-        
+
         for (SObject row : rows) {
             List<String> cols = new List<String>();
             
@@ -137,7 +143,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
                 } else {
                     value = row.get(f);
                 }
-                
+
                 cols.add(escapeCsv(value == null ? '' : String.valueOf(value)));
             }
             
@@ -145,7 +151,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         }
         return lines;
     }
-    
+
     private static List<String> normalizeFields(String csv) {
         List<String> fields = new List<String>();
         for (String f : csv.split(',')) {
@@ -155,7 +161,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         }
         return fields;
     }
-    
+
     private static String escapeCsv(String v) {
         String s = v.replace('"', '""');
         return (s.contains(',') || s.contains('\n') || s.contains('"'))

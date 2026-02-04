@@ -765,7 +765,7 @@ public with sharing class DataArchiveController {
         // Execute batch with batch size of 200
         DataArchiveBatch batch = new DataArchiveBatch(objectName, fieldsCsv, soql);
         Id batchJobId = Database.executeBatch(batch, 200);
-        
+
         return batchJobId;
     }
 
@@ -775,22 +775,22 @@ public with sharing class DataArchiveController {
     @AuraEnabled
     public static Map<String, Object> getBatchStatus(Id batchJobId) {
         AsyncApexJob job = [
-            SELECT Id, Status, NumberOfErrors, JobItemsProcessed, TotalJobItems,
+            SELECT Id, Status, NumberOfErrors,
+                   JobItemsProcessed, TotalJobItems,
                    CreatedDate, CompletedDate
             FROM AsyncApexJob
             WHERE Id = :batchJobId
             LIMIT 1
         ];
-        
-        Map<String, Object> result = new Map<String, Object>();
-        result.put('status', job.Status);
-        result.put('processed', job.JobItemsProcessed);
-        result.put('total', job.TotalJobItems);
-        result.put('errors', job.NumberOfErrors);
-        result.put('createdDate', job.CreatedDate);
-        result.put('completedDate', job.CompletedDate);
-        
-        return result;
+
+        return new Map<String, Object>{
+            'status' => job.Status,
+            'processed' => job.JobItemsProcessed,
+            'total' => job.TotalJobItems,
+            'errors' => job.NumberOfErrors,
+            'createdDate' => job.CreatedDate,
+            'completedDate' => job.CompletedDate
+        };
     }
 
     /* =====================================================
@@ -798,14 +798,12 @@ public with sharing class DataArchiveController {
      * ===================================================== */
     @AuraEnabled
     public static Id getArchiveRecordId(Id batchJobId) {
-        // Query the most recent Data Archive record
         List<Data_Archive__c> archives = [
             SELECT Id, Status__c
             FROM Data_Archive__c
             ORDER BY CreatedDate DESC
             LIMIT 1
         ];
-        
         return archives.isEmpty() ? null : archives[0].Id;
     }
 
@@ -833,38 +831,28 @@ public with sharing class DataArchiveController {
     private static String replaceSelect(String fullQuery, String fieldsCsv) {
         List<String> fields = normalizeFields(fieldsCsv);
 
-        String lowerQuery = fullQuery.toLowerCase();
-        Integer fromIndex = lowerQuery.indexOf(' from ');
-
+        Integer fromIndex = fullQuery.toLowerCase().indexOf(' from ');
         if (fromIndex == -1) {
             throw new AuraHandledException('Invalid SOQL query.');
         }
 
-        String fromClause = fullQuery.substring(fromIndex);
-        return 'SELECT ' + String.join(fields, ',') + fromClause;
+        return 'SELECT ' + String.join(fields, ',') +
+               fullQuery.substring(fromIndex);
     }
 
-    /* =====================================================
-     *   VALIDATION & UTILITIES
-     * ===================================================== */
     private static void validateInputs(String objectName, String fieldsCsv) {
-        if (String.isBlank(objectName)) {
+        if (String.isBlank(objectName))
             throw new AuraHandledException('Object name is required.');
-        }
-        if (!Schema.getGlobalDescribe().containsKey(objectName)) {
+        if (!Schema.getGlobalDescribe().containsKey(objectName))
             throw new AuraHandledException('Invalid object name.');
-        }
-        if (String.isBlank(fieldsCsv)) {
+        if (String.isBlank(fieldsCsv))
             throw new AuraHandledException('At least one field is required.');
-        }
     }
 
     private static List<String> normalizeFields(String csv) {
         List<String> fields = new List<String>();
         for (String f : csv.split(',')) {
-            if (!String.isBlank(f)) {
-                fields.add(f.trim());
-            }
+            if (!String.isBlank(f)) fields.add(f.trim());
         }
         return fields;
     }
