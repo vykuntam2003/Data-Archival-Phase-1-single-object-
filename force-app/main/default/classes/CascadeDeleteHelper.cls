@@ -8,7 +8,7 @@ public with sharing class CascadeDeleteHelper {
 
         if (!Schema.getGlobalDescribe().containsKey(parentObjectApi)) return;
 
-        //  ONLY delete parents
+        // ONLY delete parents
         // Master-Detail children will auto-delete
         Database.delete(Database.query(
             'SELECT Id FROM ' + parentObjectApi +
