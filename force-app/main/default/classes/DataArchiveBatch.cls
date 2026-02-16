@@ -268,7 +268,7 @@
         
 //         Schema.SObjectType objType = Schema.getGlobalDescribe().get(this.objectName);
 //         if (objType == null) {
-//             System.debug('❌ Object not found: ' + this.objectName);
+//             System.debug(' Object not found: ' + this.objectName);
 //             return;
 //         }
         
@@ -322,7 +322,7 @@
             
 //             // Skip if not accessible or queryable
 //             if (!childDescribe.isAccessible() || !childDescribe.isQueryable()) {
-//                 System.debug('⊘ Skipping (not accessible): ' + childObjectName);
+//                 System.debug(' Skipping (not accessible): ' + childObjectName);
 //                 skippedCount++;
 //                 continue;
 //             }
@@ -339,9 +339,9 @@
                 
 //                 childMetadataMap.put(childObjectName, meta);
 //                 validCount++;
-//                 System.debug('✅ Will archive: ' + childObjectName + ' (via ' + relationshipField + ')');
+//                 System.debug(' Will archive: ' + childObjectName + ' (via ' + relationshipField + ')');
 //             } else {
-//                 System.debug('⊘ Skipping (no accessible fields): ' + childObjectName);
+//                 System.debug(' Skipping (no accessible fields): ' + childObjectName);
 //                 skippedCount++;
 //             }
 //         }
@@ -389,7 +389,7 @@
 //                 }
 //             }
 //         } catch (Exception e) {
-//             System.debug('❌ Error getting fields for ' + childObjectName + ': ' + e.getMessage());
+//             System.debug(' Error getting fields for ' + childObjectName + ': ' + e.getMessage());
 //         }
         
 //         return fields;
@@ -483,7 +483,7 @@
 //                     this.objectName,
 //                     'Parent Object'
 //                 );
-//                 System.debug('✅ Parent CSV saved');
+//                 System.debug(' Parent CSV saved');
 //             }
 
 //             // ===== CRITICAL: Process ALL child objects HERE in finish() =====
@@ -504,7 +504,7 @@
 //                 Id = archiveRecordId,
 //                 Status__c = 'Ready for Unarchive'
 //             );
-//             System.debug('✅ Archive status updated');
+//             System.debug(' Archive status updated');
 
 //             System.debug('');
 //             System.debug('Archive complete! Total files: ' + generatedContentDocumentIds.size());
@@ -524,7 +524,7 @@
 //                             processedParentIds
 //                         )
 //                     );
-//                     System.debug('✅ Post-process queued');
+//                     System.debug(' Post-process queued');
 //                 } else {
 //                     System.debug('Running deletion inline (no queueable slots)');
 //                     CascadeDeleteHelper.deleteParentWithRelations(objectName, processedParentIds);
@@ -586,7 +586,7 @@
 //                 System.debug('Found: ' + childRecords.size() + ' records');
                 
 //                 if (childRecords.isEmpty()) {
-//                     System.debug('⊘ No records - skipping CSV creation');
+//                     System.debug(' No records - skipping CSV creation');
 //                     continue;
 //                 }
                 
@@ -606,11 +606,11 @@
 //                 // Save CSV file
 //                 saveCsvFile(csvData, 1, childObjectName, 'Child Object');
                 
-//                 System.debug('✅ CSV saved for ' + childObjectName);
+//                 System.debug(' CSV saved for ' + childObjectName);
 //                 successCount++;
                 
 //             } catch (Exception e) {
-//                 System.debug('❌ Error processing ' + childObjectName + ': ' + e.getMessage());
+//                 System.debug(' Error processing ' + childObjectName + ': ' + e.getMessage());
 //                 System.debug('Stack: ' + e.getStackTraceString());
 //                 errorCount++;
 //             }
@@ -656,7 +656,7 @@
 //             Visibility = 'AllUsers'
 //         );
         
-//         System.debug('✅ Saved: ' + fileName + '.csv (ID: ' + insertedCv.ContentDocumentId + ')');
+//         System.debug(' Saved: ' + fileName + '.csv (ID: ' + insertedCv.ContentDocumentId + ')');
 //     }
 
 //     // ===================== HELPER METHODS =====================
@@ -741,35 +741,28 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
     }
 
     // ===================== CONSTRUCTORS =====================
+    // Constructor that ALWAYS includes child objects
     public DataArchiveBatch(String objectName, String fieldsCsv, String soqlQuery) {
-        this(objectName, fieldsCsv, soqlQuery, false);
-    }
-    
-    public DataArchiveBatch(String objectName, String fieldsCsv, String soqlQuery, Boolean includeChildObjects) {
         this.objectName = objectName;
         this.fields = normalizeFields(fieldsCsv);
         this.soqlQuery = soqlQuery;
-        this.includeChildObjects = includeChildObjects;
+        this.includeChildObjects = true; // ALWAYS TRUE
         
         // Initialize parent CSV
         this.parentHeader = String.join(this.fields, ',') + '\n';
         this.currentParentCsv = this.parentHeader;
         
         // Discover child objects
-        if (this.includeChildObjects) {
-            initializeChildObjects();
-        }
+        initializeChildObjects();
     }
 
     // ===================== INITIALIZE CHILD OBJECTS =====================
     private void initializeChildObjects() {
-        System.debug('╔══════════════════════════════════════════╗');
-        System.debug('║   DISCOVERING CHILD OBJECTS              ║');
-        System.debug('╚══════════════════════════════════════════╝');
+        System.debug('DISCOVERING CHILD OBJECTS              ');
         
         Schema.SObjectType objType = Schema.getGlobalDescribe().get(this.objectName);
         if (objType == null) {
-            System.debug('❌ Object not found: ' + this.objectName);
+            System.debug(' Object not found: ' + this.objectName);
             return;
         }
         
@@ -778,17 +771,59 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         
         System.debug('Found ' + childRels.size() + ' total relationships');
         
+        // WHITELIST: Only archive these objects
+        Set<String> allowedObjects = new Set<String>{
+            'Contact',
+            'Opportunity',
+            'Case',
+            'Task',
+            'Event',
+            'Note',
+            'Attachment',
+            'OpportunityLineItem',
+            'CaseComment',
+            'AccountContactRole',
+            'OpportunityContactRole',
+            'Asset',
+            'Contract',
+            'Order',
+            'Quote',
+            'Booking_Order__c'  // YOUR CUSTOM OBJECT
+        };
+        
+        Integer validCount = 0;
+        Integer skippedCount = 0;
+        
         for (Schema.ChildRelationship childRel : childRels) {
-            String childObjectName = childRel.getChildSObject().getDescribe().getName();
-            String relationshipField = childRel.getField().getDescribe().getName();
             String relationshipName = childRel.getRelationshipName();
             
+            if (relationshipName == null) {
+                skippedCount++;
+                continue;
+            }
+            
+            Schema.DescribeSObjectResult childDescribe = childRel.getChildSObject().getDescribe();
+            String childObjectName = childDescribe.getName();
+            String relationshipField = childRel.getField().getDescribe().getName();
+            
             // Skip system objects
-            if (relationshipName == null || 
-                childObjectName.endsWith('Share') || 
+            if (childObjectName.endsWith('Share') || 
                 childObjectName.endsWith('History') || 
                 childObjectName.endsWith('Feed') ||
                 childObjectName.endsWith('ChangeEvent')) {
+                skippedCount++;
+                continue;
+            }
+            
+            // ONLY PROCESS WHITELISTED OBJECTS
+            if (!allowedObjects.contains(childObjectName)) {
+                skippedCount++;
+                continue;
+            }
+            
+            if (!childDescribe.isAccessible() || !childDescribe.isQueryable()) {
+                System.debug(' Skipping (not accessible): ' + childObjectName);
+                skippedCount++;
                 continue;
             }
             
@@ -802,11 +837,17 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
                 );
                 
                 childMetadataMap.put(childObjectName, meta);
-                System.debug('✅ Will archive: ' + childObjectName + ' (via ' + relationshipField + ')');
+                validCount++;
+                System.debug(' Will archive: ' + childObjectName + ' (via ' + relationshipField + ')');
+            } else {
+                System.debug(' Skipping (no fields): ' + childObjectName);
+                skippedCount++;
             }
         }
         
-        System.debug('Total child objects: ' + childMetadataMap.size());
+        System.debug('');
+        System.debug('Valid child objects: ' + validCount);
+        System.debug('Skipped objects: ' + skippedCount);
     }
 
     // ===================== GET CHILD OBJECT FIELDS =====================
@@ -817,29 +858,32 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             Schema.SObjectType childType = Schema.getGlobalDescribe().get(childObjectName);
             if (childType == null) return fields;
             
-            Map<String, Schema.SObjectField> fieldMap = childType.getDescribe().fields.getMap();
+            Schema.DescribeSObjectResult childDescribe = childType.getDescribe();
+            if (!childDescribe.isAccessible()) return fields;
+            
+            Map<String, Schema.SObjectField> fieldMap = childDescribe.fields.getMap();
             
             for (String fieldName : fieldMap.keySet()) {
                 Schema.DescribeFieldResult fieldDescribe = fieldMap.get(fieldName).getDescribe();
                 
                 if (!fieldDescribe.isAccessible() || 
                     fieldName.endsWith('__pc') || 
-                    fieldName == 'isdeleted') {
+                    fieldName.equalsIgnoreCase('isdeleted')) {
                     continue;
                 }
                 
                 if (fieldDescribe.isCreateable() || 
-                    fieldName == 'id' || 
-                    fieldName == 'name' || 
-                    fieldName == 'createddate' || 
-                    fieldName == 'createdbyid' ||
-                    fieldName == 'lastmodifieddate' ||
-                    fieldName == 'lastmodifiedbyid') {
+                    fieldName.equalsIgnoreCase('id') || 
+                    fieldName.equalsIgnoreCase('name') || 
+                    fieldName.equalsIgnoreCase('createddate') || 
+                    fieldName.equalsIgnoreCase('createdbyid') ||
+                    fieldName.equalsIgnoreCase('lastmodifieddate') ||
+                    fieldName.equalsIgnoreCase('lastmodifiedbyid')) {
                     fields.add(fieldDescribe.getName());
                 }
             }
         } catch (Exception e) {
-            System.debug('Error: ' + e.getMessage());
+            System.debug(' Error getting fields for ' + childObjectName + ': ' + e.getMessage());
         }
         
         return fields;
@@ -847,9 +891,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
 
     // ===================== START METHOD =====================
     public Database.QueryLocator start(Database.BatchableContext bc) {
-        System.debug('╔══════════════════════════════════════════╗');
-        System.debug('║   STARTING DATA ARCHIVE BATCH            ║');
-        System.debug('╚══════════════════════════════════════════╝');
+        System.debug('STARTING DATA ARCHIVE BATCH');
         
         Data_Archive__c archiveRecord = new Data_Archive__c(
             Parent_Object__c = this.objectName,
@@ -885,7 +927,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         
         for (String line : parentCsvLines) {
             if (Blob.valueOf(this.parentHeader + line).size() > MAX_CSV_SIZE_BYTES) {
-                System.debug('⚠️ Single parent record exceeds size limit');
+                System.debug(' Single parent record exceeds size limit');
                 continue;
             }
 
@@ -911,68 +953,92 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
     // ===================== FINISH METHOD =====================
     public void finish(Database.BatchableContext bc) {
         System.debug('');
-        System.debug('╔══════════════════════════════════════════╗');
-        System.debug('║   FINISHING - CREATING ALL CSVs          ║');
-        System.debug('╚══════════════════════════════════════════╝');
+        System.debug('FINISHING - CREATING ALL CSVs');
         
-        if (processedParentIds.isEmpty()) {
-            System.debug('⚠️ No parent records to archive');
-            return;
-        }
-        
-        System.debug('Total parent records: ' + processedParentIds.size());
-        System.debug('Parent IDs: ' + processedParentIds);
-        
-        // Save parent CSV
-        if (this.currentParentCsv != this.parentHeader) {
-            System.debug('');
-            System.debug('Saving parent CSV...');
-            saveCsvFile(
-                this.currentParentCsv,
-                this.parentPartNumber,
-                this.objectName,
-                'Parent Object'
-            );
-        }
-
-        // ===== CRITICAL: Process ALL child objects HERE in finish() =====
-        // This ensures child records still exist before deletion
-        if (this.includeChildObjects && !childMetadataMap.isEmpty()) {
-            System.debug('');
-            System.debug('╔══════════════════════════════════════════╗');
-            System.debug('║   PROCESSING CHILD OBJECTS               ║');
-            System.debug('╚══════════════════════════════════════════╝');
+        try {
+            if (processedParentIds.isEmpty()) {
+                System.debug(' No parent records to archive');
+                return;
+            }
             
-            processAllChildObjects();
-        }
-
-        // Update archive status
-        update new Data_Archive__c(
-            Id = archiveRecordId,
-            Status__c = 'Ready for Unarchive'
-        );
-
-        System.debug('');
-        System.debug('Archive complete! Files: ' + generatedContentDocumentIds.size());
-
-        // NOW queue deletion (after CSVs are created)
-        if (!processedParentIds.isEmpty()) {
-            Integer queueableUsed = Limits.getQueueableJobs();
-            Integer queueableLimit = Limits.getLimitQueueableJobs();
+            System.debug('Total parent records: ' + processedParentIds.size());
+            System.debug('Parent IDs: ' + processedParentIds);
             
-            if (queueableUsed < queueableLimit) {
-                System.debug('Queueing deletion of ' + processedParentIds.size() + ' records');
-                System.enqueueJob(
-                    new ArchivePostProcessQueueable(
-                        new List<Id>(generatedContentDocumentIds),
-                        archiveRecordId,
-                        objectName,
-                        processedParentIds
-                    )
+            // Save parent CSV
+            if (this.currentParentCsv != this.parentHeader) {
+                System.debug('');
+                System.debug('Saving parent CSV...');
+                saveCsvFile(
+                    this.currentParentCsv,
+                    this.parentPartNumber,
+                    this.objectName,
+                    'Parent Object'
                 );
-            } else {
-                System.debug('Running deletion inline');
-                CascadeDeleteHelper.deleteParentWithRelations(objectName, processedParentIds);
+                System.debug(' Parent CSV saved');
+            }
+
+            // ===== CRITICAL: Process ALL child objects HERE in finish() =====
+            // This ensures child records still exist before deletion
+            if (this.includeChildObjects && !childMetadataMap.isEmpty()) {
+                System.debug('');
+                System.debug('PROCESSING CHILD OBJECTS');
+                
+                processAllChildObjects();
+            }
+
+            // Update archive status
+            System.debug('');
+            System.debug('Updating archive status...');
+            update new Data_Archive__c(
+                Id = archiveRecordId,
+                Status__c = 'Ready for Unarchive'
+            );
+            System.debug(' Archive status updated');
+
+            System.debug('');
+            System.debug('Archive complete! Total files: ' + generatedContentDocumentIds.size());
+
+            // NOW queue deletion (after CSVs are created)
+            if (!processedParentIds.isEmpty()) {
+                Integer queueableUsed = Limits.getQueueableJobs();
+                Integer queueableLimit = Limits.getLimitQueueableJobs();
+                
+                if (queueableUsed < queueableLimit) {
+                    System.debug('Queueing deletion of ' + processedParentIds.size() + ' records');
+                    System.enqueueJob(
+                        new ArchivePostProcessQueueable(
+                            new List<Id>(generatedContentDocumentIds),
+                            archiveRecordId,
+                            objectName,
+                            processedParentIds
+                        )
+                    );
+                    System.debug(' Post-process queued');
+                } else {
+                    System.debug('Running deletion inline (no queueable slots)');
+                    CascadeDeleteHelper.deleteParentWithRelations(objectName, processedParentIds);
+                }
+            }
+            
+            System.debug('FINISH METHOD COMPLETED');
+            
+            
+        } catch (Exception e) {
+            System.debug('');
+            System.debug('ERROR IN FINISH METHOD');
+            System.debug('Error Type: ' + e.getTypeName());
+            System.debug('Error Message: ' + e.getMessage());
+            System.debug('Line Number: ' + e.getLineNumber());
+            System.debug('Stack Trace: ' + e.getStackTraceString());
+            
+            
+            try {
+                update new Data_Archive__c(
+                    Id = archiveRecordId,
+                    Status__c = 'Error: ' + e.getMessage().abbreviate(255)
+                );
+            } catch (Exception updateError) {
+                System.debug('Could not update archive status: ' + updateError.getMessage());
             }
         }
     }
@@ -980,6 +1046,9 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
     // ===================== PROCESS ALL CHILD OBJECTS (IN FINISH) =====================
     private void processAllChildObjects() {
         System.debug('Processing children for ' + processedParentIds.size() + ' parent IDs');
+        
+        Integer successCount = 0;
+        Integer errorCount = 0;
         
         for (String childObjectName : childMetadataMap.keySet()) {
             ChildMetadata meta = childMetadataMap.get(childObjectName);
@@ -1003,7 +1072,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
                 System.debug('Found: ' + childRecords.size() + ' records');
                 
                 if (childRecords.isEmpty()) {
-                    System.debug('No records - skipping CSV creation');
+                    System.debug(' No records - skipping CSV creation');
                     continue;
                 }
                 
@@ -1023,13 +1092,18 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
                 // Save CSV file
                 saveCsvFile(csvData, 1, childObjectName, 'Child Object');
                 
-                System.debug('✅ CSV saved for ' + childObjectName);
+                System.debug(' CSV saved for ' + childObjectName);
+                successCount++;
                 
             } catch (Exception e) {
-                System.debug('❌ Error: ' + e.getMessage());
+                System.debug(' Error processing ' + childObjectName + ': ' + e.getMessage());
                 System.debug('Stack: ' + e.getStackTraceString());
+                errorCount++;
             }
         }
+        
+        System.debug('');
+        System.debug('Child processing complete. Success: ' + successCount + ', Errors: ' + errorCount);
     }
 
     // ===================== SAVE CSV FILE =====================
@@ -1042,7 +1116,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             title += ' Part ' + partNum;
         }
 
-        System.debug('Creating file: ' + fileName + '.csv');
+        System.debug('Creating file: ' + fileName + '.csv (' + (csvData.length() / 1024) + ' KB)');
 
         ContentVersion cv = new ContentVersion(
             Title = title,
@@ -1068,7 +1142,7 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
             Visibility = 'AllUsers'
         );
         
-        System.debug('✅ Saved: ' + fileName + '.csv (ID: ' + insertedCv.ContentDocumentId + ')');
+        System.debug(' Saved: ' + fileName + '.csv (ID: ' + insertedCv.ContentDocumentId + ')');
     }
 
     // ===================== HELPER METHODS =====================
