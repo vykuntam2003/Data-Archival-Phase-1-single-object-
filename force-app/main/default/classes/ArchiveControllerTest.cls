@@ -15,6 +15,24 @@ private class ArchiveControllerTest {
 
     // ---------------- VALIDATION TESTS (EXISTING) ----------------
     @IsTest
+    static void testArchiveRecords_NullInputs() {
+        // Null object API
+        try {
+            ArchiveController.archiveRecords(null, new List<Id>(), 'Name');
+            System.assert(false);
+        } catch (Exception e) {}
+        // Null field list
+        try {
+            ArchiveController.archiveRecords('Account', new List<Id>(), null);
+            System.assert(false);
+        } catch (Exception e) {}
+        // Null IDs
+        try {
+            ArchiveController.archiveRecords('Account', null, 'Name');
+            System.assert(false);
+        } catch (Exception e) {}
+    }
+    @IsTest
     static void testArchiveRecords_ValidationErrors() {
 
         try {
