@@ -40,20 +40,22 @@
             </c-field-selector>
             </template>
         </div>
-        <!-- Child 2: Filter Builder -->
-        <template if:true={finalFieldsForApex.length}>
-            <c-filter-builder
-                tablecolumnsname={datatablecolumns}
-                selectfields={finalFieldsForApex}
-                fields={allFieldsForFilter}
-                onwherechange={handleWhereClauseChange}
-                selectobject={selectedSObject}
-                query={finalQuery}
-                conditions={whereClause}
-                objectname={selectedSObject}
-                objectlabel={objectLabel}
-                changed={changed}>
-            </c-filter-builder>
+        <!-- Child 2: Filter Builder (hidden when hide-filter is set) -->
+        <template lwc:if={showFilter}>
+            <template if:true={finalFieldsForApex.length}>
+                <c-filter-builder
+                    tablecolumnsname={datatablecolumns}
+                    selectfields={finalFieldsForApex}
+                    fields={allFieldsForFilter}
+                    onwherechange={handleWhereClauseChange}
+                    selectobject={selectedSObject}
+                    query={finalQuery}
+                    conditions={whereClause}
+                    objectname={selectedSObject}
+                    objectlabel={objectLabel}
+                    changed={changed}>
+                </c-filter-builder>
+            </template>
         </template>
 
         
