@@ -2,14 +2,25 @@
 private class DataArchiveSchedulerTest {
     @IsTest
     static void testScheduler_Execute() {
-        // Provide required constructor arguments
+        // Provide the new constructor arguments
         String objectName = 'Account';
-        String fieldsCsv = 'Name';
-        String soqlQuery = 'SELECT Id, Name FROM Account';
-        DataArchiveScheduler sched = new DataArchiveScheduler(objectName, fieldsCsv, soqlQuery);
+        String dateField  = 'CreatedDate';
+        Integer days      = 30;
+
+        DataArchiveScheduler sched =
+            new DataArchiveScheduler(objectName, dateField, days);
+
         Test.startTest();
         sched.execute(null);
         Test.stopTest();
-        System.assert(true, 'Scheduler execute ran');
+
+        // Verify a batch job was enqueued
+        List<AsyncApexJob> jobs = [
+            SELECT Id, JobType, Status
+            FROM AsyncApexJob
+            WHERE JobType = 'BatchApex'
+            AND ApexClass.Name = 'DataArchiveBatch'
+        ];
+        System.assert(!jobs.isEmpty(), 'DataArchiveBatch should have been enqueued');
     }
 }
