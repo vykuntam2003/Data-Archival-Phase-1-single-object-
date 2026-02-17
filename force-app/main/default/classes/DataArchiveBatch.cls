@@ -815,11 +815,11 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
                 continue;
             }
             
-            // ONLY PROCESS WHITELISTED OBJECTS
-            if (!allowedObjects.contains(childObjectName)) {
-                skippedCount++;
-                continue;
-            }
+            // // ONLY PROCESS WHITELISTED OBJECTS
+            // if (!allowedObjects.contains(childObjectName)) {
+            //     skippedCount++;
+            //     continue;
+            // }
             
             if (!childDescribe.isAccessible() || !childDescribe.isQueryable()) {
                 System.debug(' Skipping (not accessible): ' + childObjectName);
