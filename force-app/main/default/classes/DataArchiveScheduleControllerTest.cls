@@ -220,4 +220,90 @@ private class DataArchiveScheduleControllerTest {
         System.assertEquals('WED', saved.Day_Of_Week__c);
         System.assert(saved.Cron_Expression__c.contains('WED'), 'Cron should contain WED');
     }
+
+    // ─────────────────────────────────────────────────
+    //  Test: deactivateSchedule sets status to Inactive
+    // ─────────────────────────────────────────────────
+    @IsTest
+    static void testDeactivateSchedule() {
+        // Create a schedule (no real CronTrigger – deactivate should handle gracefully)
+        Data_Archive_Schedule__c sched = new Data_Archive_Schedule__c(
+            Object_Name__c     = 'Account',
+            Frequency__c       = 'DAILY',
+            Date_Field__c      = 'CreatedDate',
+            Days__c            = 30,
+            Cron_Expression__c = '0 0 2 * * ?',
+            Status__c          = 'Active',
+            Preferred_Time__c  = '02:00',
+            Day_Of_Week__c     = 'MON'
+        );
+        insert sched;
+
+        Test.startTest();
+        String result = DataArchiveScheduleController.deactivateSchedule(sched.Id);
+        Test.stopTest();
+
+        System.assert(result.contains('deactivated'), 'Should confirm deactivation');
+
+        Data_Archive_Schedule__c updated = [
+            SELECT Status__c FROM Data_Archive_Schedule__c WHERE Id = :sched.Id
+        ];
+        System.assertEquals('Inactive', updated.Status__c, 'Status should be Inactive');
+    }
+
+    // ─────────────────────────────────────────────────
+    //  Test: deactivateSchedule with invalid Id throws
+    // ─────────────────────────────────────────────────
+    @IsTest
+    static void testDeactivateSchedule_NotFound() {
+        Boolean exceptionThrown = false;
+
+        Test.startTest();
+        try {
+            // Use a fabricated Id that won't exist
+            DataArchiveScheduleController.deactivateSchedule('a0B000000000000AAA');
+        } catch (AuraHandledException e) {
+            exceptionThrown = true;
+        }
+        Test.stopTest();
+
+        System.assert(exceptionThrown, 'Should throw AuraHandledException for missing record');
+    }
+
+    // ─────────────────────────────────────────────────
+    //  Test: Orphaned schedule (null Job_Id) is auto-deactivated
+    // ─────────────────────────────────────────────────
+    @IsTest
+    static void testGetActiveSchedules_OrphanDeactivation() {
+        // Insert a schedule with no Job_Id (simulates deleted CronTrigger)
+        insert new Data_Archive_Schedule__c(
+            Object_Name__c     = 'Lead',
+            Frequency__c       = 'DAILY',
+            Date_Field__c      = 'CreatedDate',
+            Days__c            = 10,
+            Cron_Expression__c = '0 0 2 * * ?',
+            Status__c          = 'Active',
+            Preferred_Time__c  = '02:00',
+            Job_Id__c          = null
+        );
+
+        Test.startTest();
+        List<DataArchiveScheduleController.ScheduleInfo> results =
+            DataArchiveScheduleController.getActiveSchedules();
+        Test.stopTest();
+
+        // Orphan should NOT appear in the active list
+        for (DataArchiveScheduleController.ScheduleInfo si : results) {
+            System.assertNotEquals('Lead', si.objectName,
+                'Orphaned Lead schedule should have been deactivated');
+        }
+
+        // Verify the record was set to Inactive
+        Data_Archive_Schedule__c updated = [
+            SELECT Status__c FROM Data_Archive_Schedule__c
+            WHERE Object_Name__c = 'Lead' LIMIT 1
+        ];
+        System.assertEquals('Inactive', updated.Status__c,
+            'Orphaned schedule should be Inactive');
+    }
 }

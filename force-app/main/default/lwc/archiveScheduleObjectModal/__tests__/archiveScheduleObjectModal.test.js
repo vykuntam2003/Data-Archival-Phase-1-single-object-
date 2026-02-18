@@ -2,16 +2,22 @@ import { createElement } from '@lwc/engine-dom';
 import ArchiveScheduleObjectModal from 'c/archiveScheduleObjectModal';
 import getActiveSchedules from '@salesforce/apex/DataArchiveScheduleController.getActiveSchedules';
 import getSchedulesForObject from '@salesforce/apex/DataArchiveScheduleController.getSchedulesForObject';
+import deactivateSchedule from '@salesforce/apex/DataArchiveScheduleController.deactivateSchedule';
 
-// Mock Apex methods
+// Mock Apex methods (imperative — return resolved promises)
 jest.mock(
     '@salesforce/apex/DataArchiveScheduleController.getActiveSchedules',
-    () => ({ default: jest.fn() }),
+    () => ({ default: jest.fn(() => Promise.resolve([])) }),
     { virtual: true }
 );
 jest.mock(
     '@salesforce/apex/DataArchiveScheduleController.getSchedulesForObject',
-    () => ({ default: jest.fn() }),
+    () => ({ default: jest.fn(() => Promise.resolve([])) }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/DataArchiveScheduleController.deactivateSchedule',
+    () => ({ default: jest.fn(() => Promise.resolve('Schedule deactivated successfully')) }),
     { virtual: true }
 );
 

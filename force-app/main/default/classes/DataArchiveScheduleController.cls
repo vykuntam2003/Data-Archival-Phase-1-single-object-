@@ -19,19 +19,46 @@ public with sharing class DataArchiveScheduleController {
     // ─────────────────────────────────────────────────
     //  Get ALL active schedules (for View Scheduled Objects)
     // ─────────────────────────────────────────────────
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<ScheduleInfo> getActiveSchedules() {
 
         List<ScheduleInfo> result = new List<ScheduleInfo>();
 
-        for (Data_Archive_Schedule__c s : [
+        List<Data_Archive_Schedule__c> schedules = [
             SELECT Id, Object_Name__c, Frequency__c, Date_Field__c,
                    Days__c, Status__c, Cron_Expression__c, CreatedDate,
-                   Preferred_Time__c, Day_Of_Week__c
+                   Preferred_Time__c, Day_Of_Week__c, Job_Id__c
             FROM Data_Archive_Schedule__c
             WHERE Status__c = 'Active'
             ORDER BY CreatedDate DESC
-        ]) {
+        ];
+
+        // Cross-check Job IDs against CronTrigger
+        Set<Id> jobIds = new Set<Id>();
+        for (Data_Archive_Schedule__c s : schedules) {
+            if (s.Job_Id__c != null) {
+                jobIds.add(s.Job_Id__c);
+            }
+        }
+
+        Set<Id> validJobIds = new Set<Id>();
+        if (!jobIds.isEmpty()) {
+            for (CronTrigger ct : [SELECT Id FROM CronTrigger WHERE Id IN :jobIds]) {
+                validJobIds.add(ct.Id);
+            }
+        }
+
+        // Auto-deactivate orphaned schedules
+        List<Data_Archive_Schedule__c> toDeactivate = new List<Data_Archive_Schedule__c>();
+
+        for (Data_Archive_Schedule__c s : schedules) {
+            if (s.Job_Id__c == null || !validJobIds.contains(s.Job_Id__c)) {
+                toDeactivate.add(new Data_Archive_Schedule__c(
+                    Id = s.Id, Status__c = 'Inactive'
+                ));
+                continue;
+            }
+
             ScheduleInfo info   = new ScheduleInfo();
             info.id             = s.Id;
             info.objectName     = s.Object_Name__c;
@@ -45,6 +72,11 @@ public with sharing class DataArchiveScheduleController {
             info.dayOfWeek      = s.Day_Of_Week__c;
             result.add(info);
         }
+
+        if (!toDeactivate.isEmpty()) {
+            update toDeactivate;
+        }
+
         return result;
     }
 
@@ -56,15 +88,42 @@ public with sharing class DataArchiveScheduleController {
 
         List<ScheduleInfo> result = new List<ScheduleInfo>();
 
-        for (Data_Archive_Schedule__c s : [
+        List<Data_Archive_Schedule__c> schedules = [
             SELECT Id, Object_Name__c, Frequency__c, Date_Field__c,
                    Days__c, Status__c, Cron_Expression__c, CreatedDate,
-                   Preferred_Time__c, Day_Of_Week__c
+                   Preferred_Time__c, Day_Of_Week__c, Job_Id__c
             FROM Data_Archive_Schedule__c
             WHERE Object_Name__c = :objectName
             AND Status__c = 'Active'
             ORDER BY CreatedDate DESC
-        ]) {
+        ];
+
+        // Cross-check Job IDs against CronTrigger
+        Set<Id> jobIds = new Set<Id>();
+        for (Data_Archive_Schedule__c s : schedules) {
+            if (s.Job_Id__c != null) {
+                jobIds.add(s.Job_Id__c);
+            }
+        }
+
+        Set<Id> validJobIds = new Set<Id>();
+        if (!jobIds.isEmpty()) {
+            for (CronTrigger ct : [SELECT Id FROM CronTrigger WHERE Id IN :jobIds]) {
+                validJobIds.add(ct.Id);
+            }
+        }
+
+        // Auto-deactivate orphaned schedules
+        List<Data_Archive_Schedule__c> toDeactivate = new List<Data_Archive_Schedule__c>();
+
+        for (Data_Archive_Schedule__c s : schedules) {
+            if (s.Job_Id__c == null || !validJobIds.contains(s.Job_Id__c)) {
+                toDeactivate.add(new Data_Archive_Schedule__c(
+                    Id = s.Id, Status__c = 'Inactive'
+                ));
+                continue;
+            }
+
             ScheduleInfo info   = new ScheduleInfo();
             info.id             = s.Id;
             info.objectName     = s.Object_Name__c;
@@ -78,6 +137,11 @@ public with sharing class DataArchiveScheduleController {
             info.dayOfWeek      = s.Day_Of_Week__c;
             result.add(info);
         }
+
+        if (!toDeactivate.isEmpty()) {
+            update toDeactivate;
+        }
+
         return result;
     }
 
@@ -205,5 +269,37 @@ public with sharing class DataArchiveScheduleController {
 
         // Default — daily at preferred time
         return sec + ' ' + min + ' ' + hr + ' * * ?';
+    }
+
+    // ─────────────────────────────────────────────────
+    //  Deactivate a schedule (abort job + set Inactive)
+    // ─────────────────────────────────────────────────
+    @AuraEnabled
+    public static String deactivateSchedule(Id scheduleId) {
+        List<Data_Archive_Schedule__c> schedules = [
+            SELECT Id, Job_Id__c, Status__c
+            FROM Data_Archive_Schedule__c
+            WHERE Id = :scheduleId
+            LIMIT 1
+        ];
+
+        if (schedules.isEmpty()) {
+            throw new AuraHandledException('Schedule record not found.');
+        }
+
+        Data_Archive_Schedule__c schedule = schedules[0];
+
+        // Abort the CronTrigger if it still exists
+        if (schedule.Job_Id__c != null) {
+            try {
+                System.abortJob(schedule.Job_Id__c);
+            } catch (Exception e) {
+                // Job may already have been deleted from Setup — that's fine
+            }
+        }
+
+        schedule.Status__c = 'Inactive';
+        update schedule;
+        return 'Schedule deactivated successfully';
     }
 }

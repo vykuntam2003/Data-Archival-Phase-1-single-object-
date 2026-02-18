@@ -1,8 +1,10 @@
-import { LightningElement, wire, track } from 'lwc';
+import { LightningElement, track } from 'lwc';
 import getActiveSchedules
     from '@salesforce/apex/DataArchiveScheduleController.getActiveSchedules';
 import getSchedulesForObject
     from '@salesforce/apex/DataArchiveScheduleController.getSchedulesForObject';
+import deactivateSchedule
+    from '@salesforce/apex/DataArchiveScheduleController.deactivateSchedule';
 
 export default class ArchiveScheduleObjectModal extends LightningElement {
 
@@ -17,14 +19,19 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
     hasExistingSchedule = false;
     showObjectScheduleTable = false;
 
-    // ── Load all active schedules ──
-    @wire(getActiveSchedules)
-    wiredSchedules({ data, error }) {
-        if (data) {
-            this.allSchedules = data;
-        } else if (error) {
-            console.error('Error loading schedules:', error);
-        }
+    // ── Load all active schedules (imperative — method does DML) ──
+    connectedCallback() {
+        this.loadActiveSchedules();
+    }
+
+    loadActiveSchedules() {
+        getActiveSchedules()
+            .then(data => {
+                this.allSchedules = data;
+            })
+            .catch(error => {
+                console.error('Error loading schedules:', error);
+            });
     }
 
     // ───────────────────────────────────
