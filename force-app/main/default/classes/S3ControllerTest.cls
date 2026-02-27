@@ -53,6 +53,41 @@ private class S3ControllerTest {
         System.assertEquals('ok', result, 'Should still succeed with null filename');
     }
 
+    // ─── getDataFromS3AsBase64 ───────────────────────────────────────
+
+    @IsTest
+    static void testGetDataFromS3AsBase64_Success() {
+        String csvContent = 'Id,Name\n001,Test';
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(200, csvContent));
+        Test.startTest();
+        String result = S3Controller.getDataFromS3AsBase64('folder/file.csv');
+        Test.stopTest();
+        // Result should be a valid base64 string
+        System.assert(result != null && result.length() > 0, 'Should return base64 encoded body');
+    }
+
+    @IsTest
+    static void testGetDataFromS3AsBase64_Error() {
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(500, 'Server Error'));
+        Test.startTest();
+        try {
+            S3Controller.getDataFromS3AsBase64('folder/file.csv');
+            System.assert(false, 'Should have thrown AuraHandledException');
+        } catch (AuraHandledException ex) {
+            System.assert(ex.getMessage() != null, 'Error message should exist');
+        }
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void testGetDataFromS3AsBase64_NullFileName() {
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(200, 'data'));
+        Test.startTest();
+        String result = S3Controller.getDataFromS3AsBase64(null);
+        Test.stopTest();
+        System.assert(result != null, 'Should succeed with null filename');
+    }
+
     // ─── listObjectsFromS3 ──────────────────────────────────────────
 
     @IsTest
@@ -135,5 +170,76 @@ private class S3ControllerTest {
         String result = S3Controller.putObjectToS3('folder/file.csv', base64Body, null);
         Test.stopTest();
         System.assert(result.contains('200'), 'Should succeed with null content type');
+    }
+
+    @IsTest
+    static void testPutObjectToS3_NullFileName() {
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(200, ''));
+        Test.startTest();
+        String base64Body = EncodingUtil.base64Encode(Blob.valueOf('data'));
+        String result = S3Controller.putObjectToS3(null, base64Body, 'text/csv');
+        Test.stopTest();
+        System.assert(result.contains('200'), 'Should succeed with null file name');
+    }
+
+    // ─── listObjectsByPrefix ─────────────────────────────────────────
+
+    @IsTest
+    static void testListObjectsByPrefix_Success() {
+        String xmlBody =
+            '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">' +
+            '  <Contents>' +
+            '    <Key>myprefix/file1.csv</Key>' +
+            '    <Size>512</Size>' +
+            '  </Contents>' +
+            '  <Contents>' +
+            '    <Key>myprefix/</Key>' +
+            '    <Size>0</Size>' +
+            '  </Contents>' +
+            '  <Contents>' +
+            '    <Key>myprefix/file2.csv</Key>' +
+            '    <Size>1024</Size>' +
+            '  </Contents>' +
+            '</ListBucketResult>';
+
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(200, xmlBody));
+        Test.startTest();
+        String result = S3Controller.listObjectsByPrefix('myprefix');
+        Test.stopTest();
+
+        List<Object> items = (List<Object>) JSON.deserializeUntyped(result);
+        // Should return 2 items — the folder entry "myprefix/" is skipped
+        System.assertEquals(2, items.size(),
+            'Should return 2 items, skipping the folder entry itself');
+    }
+
+    @IsTest
+    static void testListObjectsByPrefix_Error() {
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(403, 'Forbidden'));
+        Test.startTest();
+        try {
+            S3Controller.listObjectsByPrefix('someprefix');
+            System.assert(false, 'Should have thrown AuraHandledException');
+        } catch (AuraHandledException ex) {
+            System.assert(ex.getMessage() != null, 'Error message should exist');
+        }
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void testListObjectsByPrefix_EmptyResult() {
+        String xmlBody =
+            '<?xml version="1.0" encoding="UTF-8"?>' +
+            '<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">' +
+            '</ListBucketResult>';
+
+        Test.setMock(HttpCalloutMock.class, new S3HttpMock(200, xmlBody));
+        Test.startTest();
+        String result = S3Controller.listObjectsByPrefix('emptyprefix');
+        Test.stopTest();
+
+        List<Object> items = (List<Object>) JSON.deserializeUntyped(result);
+        System.assertEquals(0, items.size(), 'Should return empty list when no objects');
     }
 }
