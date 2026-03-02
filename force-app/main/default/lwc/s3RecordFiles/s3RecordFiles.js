@@ -4,6 +4,7 @@ import getDataFromS3 from '@salesforce/apex/S3Controller.getDataFromS3';
 import getFilteredCsvFromS3 from '@salesforce/apex/S3Controller.getFilteredCsvFromS3';
 import getDataFromS3AsBase64 from '@salesforce/apex/S3Controller.getDataFromS3AsBase64';
 import getCsvFieldMetadata from '@salesforce/apex/S3Controller.getCsvFieldMetadata';
+import hasDownloadPermission from '@salesforce/customPermission/Can_Download_Archive_Files';
 
 // File types that can be previewed in-browser
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'bmp', 'webp', 'ico']);
@@ -52,6 +53,10 @@ export default class S3RecordFiles extends LightningElement {
     @track csvFilterMode = 'all'; // 'all' or 'filter'
     _allCsvRows = [];            // unfiltered backup
     _csvWhereClause = '';        // current WHERE clause from filterBuilder
+
+    get canDownload() {
+        return hasDownloadPermission;
+    }
 
     get fileCount() {
         return this.files.length;
