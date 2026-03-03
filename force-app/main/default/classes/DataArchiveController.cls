@@ -46,7 +46,7 @@ public with sharing class DataArchiveController {
 
         // Execute batch with batch size of 200
         DataArchiveBatch batch = new DataArchiveBatch(objectName, fieldsCsv, soql);
-        Id batchJobId = Database.executeBatch(batch, 200);
+        Id batchJobId = Database.executeBatch(batch, 2000);
 
         return batchJobId;
     }
