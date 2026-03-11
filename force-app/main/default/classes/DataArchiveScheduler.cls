@@ -4,17 +4,35 @@ public with sharing class DataArchiveScheduler implements Schedulable {
     private String criteriaField;
     private Integer days;
     private String filterValue;
+    private String scheduleName;
+    private List<String> selectedChildObjects;
 
+    // Backward-compatible constructor (no child objects)
     public DataArchiveScheduler(
         String objectName,
         String criteriaField,
         Integer days,
-        String filterValue
+        String filterValue,
+        String scheduleName
+    ){
+        this(objectName, criteriaField, days, filterValue, scheduleName, null);
+    }
+
+    // Full constructor with child object selection
+    public DataArchiveScheduler(
+        String objectName,
+        String criteriaField,
+        Integer days,
+        String filterValue,
+        String scheduleName,
+        List<String> selectedChildObjects
     ){
         this.objectName    = objectName;
         this.criteriaField = criteriaField;
         this.days          = days;
         this.filterValue   = filterValue;
+        this.scheduleName  = scheduleName;
+        this.selectedChildObjects = selectedChildObjects;
     }
 
     public void execute(SchedulableContext sc) {
@@ -41,7 +59,7 @@ public with sharing class DataArchiveScheduler implements Schedulable {
             ' WHERE ' + whereClause;
 
         DataArchiveBatch batch =
-            new DataArchiveBatch(objectName, fieldsCsv, soql);
+            new DataArchiveBatch(objectName, fieldsCsv, soql, scheduleName, selectedChildObjects);
 
         Database.executeBatch(batch, 200);
     }

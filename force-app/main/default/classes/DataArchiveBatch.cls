@@ -1231,18 +1231,44 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         }
     }
 
-    // ===================== CONSTRUCTOR =====================
+    // ===================== CONSTRUCTORS (backward-compatible overloads) =====================
     public DataArchiveBatch(String objectName, String fieldsCsv, String soqlQuery) {
+        this(objectName, fieldsCsv, soqlQuery, null, null);
+    }
+
+    public DataArchiveBatch(String objectName, String fieldsCsv, String soqlQuery, String archiveName) {
+        this(objectName, fieldsCsv, soqlQuery, archiveName, null);
+    }
+
+    public DataArchiveBatch(String objectName, String fieldsCsv, String soqlQuery,
+                            String archiveName, List<String> selectedChildObjects) {
         this.objectName   = objectName;
         this.fields       = normalizeFields(fieldsCsv);
         this.soqlQuery    = soqlQuery;
+        this.archiveRecordName = archiveName;
 
         this.parentHeader     = String.join(this.fields, ',') + '\n';
         this.currentParentCsv = this.parentHeader;
 
         System.debug('========== DISCOVERING CHAIN ==========');
         discoverChain(this.objectName, 1);
-        System.debug('Total objects in chain: ' + childMetadataMap.size());
+        System.debug('Total objects discovered: ' + childMetadataMap.size());
+
+        // Filter to only user-selected child objects
+        if (selectedChildObjects != null && !selectedChildObjects.isEmpty()) {
+            Set<String> allowed = new Set<String>(selectedChildObjects);
+            List<String> toRemove = new List<String>();
+            for (String objName : childMetadataMap.keySet()) {
+                if (!allowed.contains(objName)) {
+                    toRemove.add(objName);
+                }
+            }
+            for (String objName : toRemove) {
+                childMetadataMap.remove(objName);
+            }
+            System.debug('After filtering to user selection: ' + childMetadataMap.size() + ' objects');
+        }
+
         System.debug('');
 
         // Print full tree
@@ -1356,7 +1382,8 @@ public class DataArchiveBatch implements Database.Batchable<SObject>, Database.S
         Data_Archive__c archiveRecord = new Data_Archive__c(
             Parent_Object__c = this.objectName,
             Fields__c        = String.join(this.fields, ','),
-            Status__c        = 'Archive In Progress'
+            Status__c        = 'Archive In Progress',
+            Name             = this.archiveRecordName
         );
         insert archiveRecord;
 

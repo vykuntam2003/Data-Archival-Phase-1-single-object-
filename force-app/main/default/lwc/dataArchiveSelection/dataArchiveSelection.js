@@ -1,11 +1,12 @@
 import { LightningElement } from 'lwc';
+import { NavigationMixin } from 'lightning/navigation';
 import scheduleArchive
     from '@salesforce/apex/DataArchiveScheduleController.scheduleArchive';
 
 import { ShowToastEvent }
     from 'lightning/platformShowToastEvent';
 
-export default class DataArchiveSelection extends LightningElement {
+export default class DataArchiveSelection extends NavigationMixin(LightningElement) {
 
     booleanFlag = true;     // Archive default ON
     unArchiveFlag = false;
@@ -15,11 +16,14 @@ export default class DataArchiveSelection extends LightningElement {
     showScheduleModal = false;
     showCriteriaModal = false;
     showObjectModal = false;
+    showChildObjectModal = false;
 
     // Store selections
     selectedFrequency;
     selectedCriteria;
     selectedObject;
+    scheduleName;
+    selectedChildObjects;
 
     get archiveClass() {
         return this.booleanFlag
@@ -84,11 +88,25 @@ export default class DataArchiveSelection extends LightningElement {
         this.showCriteriaModal = true;
     }
 
-    // Criteria selected → open Frequency modal
+    // Criteria selected → open Child Object selection modal
     handleCriteriaSelected(event) {
         this.selectedCriteria = event.detail;
+        this.scheduleName = event.detail.scheduleName;
         this.showCriteriaModal = false;
+        this.showChildObjectModal = true;
+    }
+
+    // Child objects selected → open Frequency modal
+    handleChildObjectsSelected(event) {
+        this.selectedChildObjects = event.detail.selectedChildObjects;
+        this.showChildObjectModal = false;
         this.showScheduleModal = true;
+    }
+
+    // Previous from Child Object → back to Criteria modal
+    handleChildObjectPrevious() {
+        this.showChildObjectModal = false;
+        this.showCriteriaModal = true;
     }
 
     // Previous from Criteria → back to Object modal
@@ -97,10 +115,10 @@ export default class DataArchiveSelection extends LightningElement {
         this.showObjectModal = true;
     }
 
-    // Previous from Frequency → back to Criteria modal
+    // Previous from Frequency → back to Child Object modal
     handleFrequencyPrevious() {
         this.showScheduleModal = false;
-        this.showCriteriaModal = true;
+        this.showChildObjectModal = true;
     }
 
     // Frequency selected and scheduling complete
@@ -109,23 +127,41 @@ export default class DataArchiveSelection extends LightningElement {
         const scheduleData = event.detail;
 
         scheduleArchive({
-            objectName:    scheduleData.object,
-            frequency:     scheduleData.frequency,
-            dateField:     scheduleData.criteria.whereClause || 'FilterCriteria',
-            days:          0,
-            filterValue:   scheduleData.criteria.whereClause,
+            objectName: scheduleData.object,
+            frequency: scheduleData.frequency,
+            dateField: scheduleData.criteria.whereClause || 'FilterCriteria',
+            days: 0,
+            filterValue: scheduleData.criteria.whereClause,
             preferredTime: scheduleData.preferredTime,
-            dayOfWeek:     scheduleData.dayOfWeek
+            dayOfWeek: scheduleData.dayOfWeek,
+            scheduleName: scheduleData.scheduleName,
+            selectedChildObjects: scheduleData.selectedChildObjects
         })
-            .then(result => {
+            .then(recordId => {
 
-                this.dispatchEvent(
-                    new ShowToastEvent({
-                        title: 'Success',
-                        message: result,
-                        variant: 'success'
-                    })
-                );
+                // Build the record page URL
+                this[NavigationMixin.GenerateUrl]({
+                    type: 'standard__recordPage',
+                    attributes: {
+                        recordId: recordId,
+                        objectApiName: 'Data_Archive_Schedule__c',
+                        actionName: 'view'
+                    }
+                }).then(url => {
+                    this.dispatchEvent(
+                        new ShowToastEvent({
+                            title: 'Success',
+                            message: 'Schedule Created Successfully! {0}',
+                            messageData: [
+                                {
+                                    url: url,
+                                    label: 'View Data Archive Schedule Record'
+                                }
+                            ],
+                            variant: 'success'
+                        })
+                    );
+                });
 
                 this.closeAllModals();
             })
@@ -146,6 +182,7 @@ export default class DataArchiveSelection extends LightningElement {
         this.showScheduleModal = false;
         this.showCriteriaModal = false;
         this.showObjectModal = false;
+        this.showChildObjectModal = false;
     }
 
 }

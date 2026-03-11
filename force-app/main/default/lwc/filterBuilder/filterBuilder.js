@@ -11,29 +11,29 @@ export default class FilterBuilder extends LightningElement {
     isLoading = false;
     masterSelectedIds = new Set();
     archiveSelectedRows = [];
-    
+
     // Batch job tracking
     batchJobId = null;
     archiveRecordId = null;
     batchPollingInterval = null;
-    
-    @api selectfields=[];
+
+    @api selectfields = [];
     @api fields = [];
     @api selectobject;
     @api query;
     @api conditions;
     @api objectname;
     @api objectlabel;
-    @api tablecolumnsname=[];
+    @api tablecolumnsname = [];
     @api changed;
     @api criteriaOnly = false;
-    @track showNoRecords=false;
-    @track showTable=false;
+    @track showNoRecords = false;
+    @track showTable = false;
     @track filteredAccounts;
     @track pageSize = '20';
-    @track allRecords=true;
-    @track selectedRows=[];
-    @track selectedCondition='AND';
+    @track allRecords = true;
+    @track selectedRows = [];
+    @track selectedCondition = 'AND';
     @track currentPage = 1;
     totalPages = 1;
     totalRecords = 0;
@@ -42,12 +42,15 @@ export default class FilterBuilder extends LightningElement {
     isFilterMode = false;
     showModal = false;
     customLogic = '';
-    modalMessage='';
-    note='';
+    modalMessage = '';
+    note = '';
+    archiveName = '';
+    archiveModalStep = 1;
+    selectedChildObjects = [];
 
-    closeTable(){
-        this.showTable=false;
-        this.showNoRecords=false;
+    closeTable() {
+        this.showTable = false;
+        this.showNoRecords = false;
     }
 
     pageSizeOptions = [
@@ -59,25 +62,25 @@ export default class FilterBuilder extends LightningElement {
         { label: '200 / page', value: '200' },
         { label: '300 / page', value: '300' },
         { label: '400 / page', value: '400' },
-        {label: '500 / page', value: '500' },
-        {label: '2000 / page', value: '2000' },
-        {label: '3000 / page', value: '3000' },
+        { label: '500 / page', value: '500' },
+        { label: '2000 / page', value: '2000' },
+        { label: '3000 / page', value: '3000' },
     ];
 
-    conditionOptions=[
+    conditionOptions = [
         { label: 'All Conditions Met (AND)', value: 'AND' },
         { label: 'Any Condition Met (OR)', value: 'OR' },
         { label: 'Custom Condition Logic', value: 'CUSTOM' }
     ];
 
-    connectedCallback(){
-        if(this.changed){
-            this.filteredAccounts=null;
+    connectedCallback() {
+        if (this.changed) {
+            this.filteredAccounts = null;
         }
-        if(this.criteriaOnly){
+        if (this.criteriaOnly) {
             this.isFilterMode = true;
             this.allRecords = false;
-            if(!this.filters.length){
+            if (!this.filters.length) {
                 this.addFilter();
             }
         }
@@ -102,7 +105,7 @@ export default class FilterBuilder extends LightningElement {
         this.allRecords = true;
         this.filters = [];
         this.filteredAccounts = null;
-        this.showNoRecords=false;
+        this.showNoRecords = false;
         this.notifyWhereClauseChange();
     }
 
@@ -183,7 +186,7 @@ export default class FilterBuilder extends LightningElement {
         }));
     }
 
-    handleConditionChange(event){
+    handleConditionChange(event) {
         this.closeTable();
         this.selectedCondition = event.detail.value;
         this.notifyWhereClauseChange();
@@ -201,7 +204,7 @@ export default class FilterBuilder extends LightningElement {
                 value: "",
                 isDate: false,
                 isDateTime: false,
-                showTextInput:true,
+                showTextInput: true,
                 fieldType: "STRING",
                 showJoin: this.filters.length === 0 ? 'filter-box-first' : 'filter-box',
                 displayIndex: this.filters.length + 1
@@ -226,13 +229,13 @@ export default class FilterBuilder extends LightningElement {
         this.closeTable();
         const id = Number(event.currentTarget.dataset.id);
         this.filters = this.filters.filter(f => f.id !== id);
-        
-        if(this.filters.length>0){
+
+        if (this.filters.length > 0) {
             this.filters[0].showJoin = 'filter-box-first';
             this.filters = [...this.filters];
         }
-        
-        this.filters=this.filters.map((f, index) => {
+
+        this.filters = this.filters.map((f, index) => {
             return {
                 ...f,
                 displayIndex: index + 1
@@ -247,13 +250,13 @@ export default class FilterBuilder extends LightningElement {
     }
 
     handleJoinChange(e) { this.updateFilter(e, "joinType"); }
-    handleOperatorChange(e) { 
+    handleOperatorChange(e) {
         this.closeTable();
-        this.updateFilter(e, "operator"); 
+        this.updateFilter(e, "operator");
     }
     handleValueChange(e) {
         this.closeTable();
-        this.updateFilter(e, "value"); 
+        this.updateFilter(e, "value");
     }
 
     handleFieldChange(event) {
@@ -262,7 +265,7 @@ export default class FilterBuilder extends LightningElement {
         const selectedField = event.detail.value;
         const fieldMeta = this.fields.find(f => f.apiName === selectedField);
         const ops = this.operatorMap[fieldMeta.type] || this.operatorMap.STRING;
-        
+
         this.filters = this.filters.map(f => {
             if (f.id === id) {
                 return {
@@ -273,7 +276,7 @@ export default class FilterBuilder extends LightningElement {
                     isDate: fieldMeta.type === "DATE",
                     isDateTime: fieldMeta.type === "DATETIME",
                     fieldType: fieldMeta.type,
-                    showTextInput:!(fieldMeta.type === "DATE" || fieldMeta.type === "DATETIME")
+                    showTextInput: !(fieldMeta.type === "DATE" || fieldMeta.type === "DATETIME")
                 };
             }
             return f;
@@ -301,7 +304,7 @@ export default class FilterBuilder extends LightningElement {
         const valid = [];
 
         this.filters.forEach((f, i) => {
-            if (!f.field || !f.operator || f.value === ''  || f.value === undefined) {
+            if (!f.field || !f.operator || f.value === '' || f.value === undefined) {
                 return;
             }
 
@@ -336,7 +339,7 @@ export default class FilterBuilder extends LightningElement {
         this.closeTable();
         this.customLogic = event.detail.value;
         const textarea = event.target;
-        
+
         if (!this.isValidCustomLogic(this.customLogic)) {
             textarea.setCustomValidity("Invalid logic: Check your parentheses or filter numbers.");
         } else {
@@ -402,11 +405,11 @@ export default class FilterBuilder extends LightningElement {
             this.showToast('Error', 'Please fix validation errors before filtering.', 'error');
             return;
         }
-        
-        this.filteredAccounts=null;
+
+        this.filteredAccounts = null;
         this.currentPage = 1;
-        this.showTable=true;
-        this.showNoRecords=false;
+        this.showTable = true;
+        this.showNoRecords = false;
         this.loadRecords();
     }
 
@@ -440,14 +443,14 @@ export default class FilterBuilder extends LightningElement {
                 query: this.query,
                 offsetSize: offsetValue,
                 pageSize: this.pageSize,
-                objectName: this.objectname      
+                objectName: this.objectname
             });
 
             this.filteredAccounts = result.records;
-            console.log("Filtered Accounts",JSON.stringify(this.filteredAccounts))
+            console.log("Filtered Accounts", JSON.stringify(this.filteredAccounts))
             this.showNoRecords = result.records.length === 0;
             this.showTable = !this.showNoRecords;
-            
+
             this.totalRecords = result.totalCount;
             this.totalPages = Math.ceil(this.totalRecords / Number(this.pageSize));
 
@@ -469,7 +472,7 @@ export default class FilterBuilder extends LightningElement {
 
         rows.forEach(r => this.masterSelectedIds.add(r.Id));
 
-        this.filteredAccounts.forEach(r => {    
+        this.filteredAccounts.forEach(r => {
             if (!rows.find(x => x.Id === r.Id)) {
                 this.masterSelectedIds.delete(r.Id);
             }
@@ -502,19 +505,59 @@ export default class FilterBuilder extends LightningElement {
         }
     }
 
-    closeModal(){
-        this.showModal = false;
+    handleArchiveNameChange(event) {
+        this.archiveName = event.detail.value;
+        console.log("Archive Name:", this.archiveName);
     }
 
-    confirmArchive(){
-        if(this.masterSelectedIds.size>0){
+    get isStartArchiveDisabled() {
+        return !this.archiveName || this.archiveName.trim().length === 0;
+    }
+
+    get isArchiveStep1() {
+        return this.archiveModalStep === 1;
+    }
+
+    get isArchiveStep2() {
+        return this.archiveModalStep === 2;
+    }
+
+    get step1Class() {
+        return this.archiveModalStep === 1 ? 'step-item step-active' : 'step-item step-done';
+    }
+
+    get step2Class() {
+        return this.archiveModalStep === 2 ? 'step-item step-active' : 'step-item';
+    }
+
+    handleArchiveModalNext() {
+        this.archiveModalStep = 2;
+    }
+
+    handleArchiveModalPrevious() {
+        this.archiveModalStep = 1;
+    }
+
+    handleChildSelectionChange(event) {
+        this.selectedChildObjects = event.detail.selectedObjects || [];
+    }
+
+    closeModal() {
+        this.showModal = false;
+        this.archiveName = '';
+        this.archiveModalStep = 1;
+        this.selectedChildObjects = [];
+    }
+
+    confirmArchive() {
+        if (this.masterSelectedIds.size > 0) {
             this.showModal = false;
             this.archiveSelected();
         }
-        else{
+        else {
             this.showModal = false;
             this.archiveAll();
-        }    
+        }
     }
 
     // =====================================================
@@ -526,13 +569,15 @@ export default class FilterBuilder extends LightningElement {
         if (ids.length === 0) {
             return this.showToast('Error', 'Select at least one row.', 'error');
         }
-        
+
         this.isLoading = true;
 
         archiveSelectedRecords({
             objectName: this.objectname,
             recordIds: ids,
-            fieldsCsv: this.selectedFieldApiList.join(',')
+            fieldsCsv: this.selectedFieldApiList.join(','),
+            archiveName: this.archiveName,
+            selectedChildObjects: this.selectedChildObjects
         })
             .then((batchJobId) => {
                 this.batchJobId = batchJobId;
@@ -553,13 +598,15 @@ export default class FilterBuilder extends LightningElement {
         if (!this.query) {
             return this.showToast('Error', 'Full query missing.', 'error');
         }
-        
+
         this.isLoading = true;
 
         archiveAllRecords({
             objectName: this.objectname,
             fieldsCsv: this.selectedFieldApiList.join(','),
-            fullQuery: this.query
+            fullQuery: this.query,
+            archiveName: this.archiveName,
+            selectedChildObjects: this.selectedChildObjects
         })
             .then((batchJobId) => {
                 this.batchJobId = batchJobId;
@@ -577,7 +624,7 @@ export default class FilterBuilder extends LightningElement {
     // =====================================================
     startBatchPolling() {
         this.stopBatchPolling();
-        
+
         this.batchPollingInterval = setInterval(() => {
             this.checkBatchStatus();
         }, 3000); // Poll every 3 seconds
@@ -595,9 +642,9 @@ export default class FilterBuilder extends LightningElement {
 
         try {
             const status = await getBatchStatus({ batchJobId: this.batchJobId });
-            
+
             console.log('Batch Status:', status.status);
-            
+
             if (status.status === 'Completed') {
                 this.stopBatchPolling();
                 this.handleBatchCompletion();
@@ -615,7 +662,7 @@ export default class FilterBuilder extends LightningElement {
     async handleBatchCompletion() {
         try {
             const archiveId = await getArchiveRecordId({ batchJobId: this.batchJobId });
-            
+
             if (archiveId) {
                 this.archiveRecordId = archiveId;
                 this.dispatchEvent(
@@ -631,7 +678,7 @@ export default class FilterBuilder extends LightningElement {
                         variant: 'success',
                     })
                 );
-                
+
                 this.dispatchEvent(new CustomEvent('refreshdata'));
                 this.loadRecords();
             }
@@ -659,10 +706,10 @@ export default class FilterBuilder extends LightningElement {
         if (!logic || logic.trim() === '') return true;
 
         const sanitizedLogic = logic.replace(/\d+/g, '')
-                                    .replace(/AND/gi, '')
-                                    .replace(/OR/gi, '')
-                                    .replace(/[\(\)\s]/g, '');
-        
+            .replace(/AND/gi, '')
+            .replace(/OR/gi, '')
+            .replace(/[\(\)\s]/g, '');
+
         if (sanitizedLogic.length > 0) {
             return false;
         }

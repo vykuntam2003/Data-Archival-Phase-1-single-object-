@@ -4,26 +4,27 @@ export default class ArchiveScheduleFrequencyModal extends LightningElement {
 
     @api selectedObject;
     @api selectedCriteria;
-
+    @api scheduleName;
+    @api selectedChildObjects;
     selectedFrequency;
     preferredTime = '02:00';
     selectedDayOfWeek = 'MON';
 
     frequencyOptions = [
-        { label: 'Daily',   value: 'DAILY' },
-        { label: 'Weekly',  value: 'WEEKLY' },
+        { label: 'Daily', value: 'DAILY' },
+        { label: 'Weekly', value: 'WEEKLY' },
         { label: 'Monthly', value: 'MONTHLY' },
-        { label: 'Yearly',  value: 'YEARLY' }
+        { label: 'Yearly', value: 'YEARLY' }
     ];
 
     dayOfWeekOptions = [
-        { label: 'Monday',    value: 'MON' },
-        { label: 'Tuesday',   value: 'TUE' },
+        { label: 'Monday', value: 'MON' },
+        { label: 'Tuesday', value: 'TUE' },
         { label: 'Wednesday', value: 'WED' },
-        { label: 'Thursday',  value: 'THU' },
-        { label: 'Friday',    value: 'FRI' },
-        { label: 'Saturday',  value: 'SAT' },
-        { label: 'Sunday',    value: 'SUN' }
+        { label: 'Thursday', value: 'THU' },
+        { label: 'Friday', value: 'FRI' },
+        { label: 'Saturday', value: 'SAT' },
+        { label: 'Sunday', value: 'SUN' }
     ];
 
     // ── Computed ──
@@ -77,11 +78,13 @@ export default class ArchiveScheduleFrequencyModal extends LightningElement {
         this.dispatchEvent(
             new CustomEvent('schedulecomplete', {
                 detail: {
-                    frequency:     this.selectedFrequency,
-                    criteria:      this.selectedCriteria,
-                    object:        this.selectedObject,
+                    frequency: this.selectedFrequency,
+                    criteria: this.selectedCriteria,
+                    object: this.selectedObject,
                     preferredTime: this.preferredTime,
-                    dayOfWeek:     this.selectedDayOfWeek
+                    dayOfWeek: this.selectedDayOfWeek,
+                    scheduleName: this.scheduleName,
+                    selectedChildObjects: this.selectedChildObjects
                 }
             })
         );

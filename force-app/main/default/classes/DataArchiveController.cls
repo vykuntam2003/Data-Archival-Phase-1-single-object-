@@ -7,14 +7,16 @@ public with sharing class DataArchiveController {
     public static Id archiveSelectedRecords(
         String objectName,
         List<Id> recordIds,
-        String fieldsCsv
+        String fieldsCsv,
+        String archiveName,
+        List<String> selectedChildObjects
     ) {
         if (recordIds == null || recordIds.isEmpty()) {
             throw new AuraHandledException('Select at least one record to archive.');
         }
 
         String soql = buildSoqlForSelected(objectName, recordIds, fieldsCsv);
-        return executeBatchArchive(objectName, fieldsCsv, soql);
+        return executeBatchArchive(objectName, fieldsCsv, soql, archiveName, selectedChildObjects);
     }
 
     /* =====================================================
@@ -24,14 +26,16 @@ public with sharing class DataArchiveController {
     public static Id archiveAllRecords(
         String objectName,
         String fieldsCsv,
-        String fullQuery
+        String fullQuery,
+        String archiveName,
+        List<String> selectedChildObjects
     ) {
         if (String.isBlank(fullQuery)) {
             throw new AuraHandledException('Full query is required.');
         }
 
         String finalQuery = replaceSelect(fullQuery, fieldsCsv);
-        return executeBatchArchive(objectName, fieldsCsv, finalQuery);
+        return executeBatchArchive(objectName, fieldsCsv, finalQuery, archiveName, selectedChildObjects);
     }
 
     /* =====================================================
@@ -40,12 +44,13 @@ public with sharing class DataArchiveController {
     private static Id executeBatchArchive(
         String objectName,
         String fieldsCsv,
-        String soql
+        String soql,
+        String archiveName,
+        List<String> selectedChildObjects
     ) {
         validateInputs(objectName, fieldsCsv);
 
-        // Execute batch with batch size of 200
-        DataArchiveBatch batch = new DataArchiveBatch(objectName, fieldsCsv, soql);
+        DataArchiveBatch batch = new DataArchiveBatch(objectName, fieldsCsv, soql, archiveName, selectedChildObjects);
         Id batchJobId = Database.executeBatch(batch, 2000);
 
         return batchJobId;
