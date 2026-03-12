@@ -1,0 +1,1 @@
+Database.getQueryLocator('SELECT Id FROM Account WHERE Name = \'Second\' WITH SECURITY_ENFORCED');

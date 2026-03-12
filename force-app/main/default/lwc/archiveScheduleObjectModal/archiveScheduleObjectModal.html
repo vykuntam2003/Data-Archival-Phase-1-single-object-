@@ -36,9 +36,9 @@
 
                         <template if:true={hasAllSchedules}>
                             <div class="schedule-table-wrapper">
-                                <lightning-datatable key-field="id" data={allSchedules} columns={allScheduleColumns}
-                                    hide-checkbox-column>
-                                </lightning-datatable>
+                                <c-custom-datatable key-field="id" data={allSchedules} columns={allScheduleColumns}
+                                    hide-checkbox-column onpicklistchange={handlePicklistChange}>
+                                </c-custom-datatable>
                             </div>
 
                             <!-- Pagination Controls -->
@@ -85,9 +85,9 @@
                         <!-- Object-specific schedules TABLE (expandable) -->
                         <template if:true={showObjectScheduleTable}>
                             <div class="schedule-table-wrapper slds-m-top_small">
-                                <lightning-datatable key-field="id" data={objectSchedules}
-                                    columns={objectScheduleColumns} hide-checkbox-column>
-                                </lightning-datatable>
+                                <c-custom-datatable key-field="id" data={objectSchedules}
+                                    columns={objectScheduleColumns} hide-checkbox-column onpicklistchange={handlePicklistChange}>
+                                </c-custom-datatable>
                             </div>
 
                             <!-- Object-schedules Pagination -->

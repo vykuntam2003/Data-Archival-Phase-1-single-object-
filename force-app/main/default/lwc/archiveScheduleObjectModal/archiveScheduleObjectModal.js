@@ -5,6 +5,9 @@ import getSchedulesForObjectPaginated
     from '@salesforce/apex/DataArchiveScheduleController.getSchedulesForObjectPaginated';
 import deactivateSchedule
     from '@salesforce/apex/DataArchiveScheduleController.deactivateSchedule';
+import updateScheduleStatus
+    from '@salesforce/apex/DataArchiveScheduleController.updateScheduleStatus';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 const PAGE_SIZE = 5;
 
@@ -20,6 +23,15 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
 
     // ── All-schedule datatable columns ──
     allScheduleColumns = [
+        {
+            label: 'Name',
+            fieldName: 'recordUrl',
+            type: 'url',
+            typeAttributes: {
+                label: { fieldName: 'name' },
+                target: '_blank'
+            }
+        },
         { label: 'Object', fieldName: 'objectName', type: 'text' },
         { label: 'Criteria', fieldName: 'dateField', type: 'text' },
         { 
@@ -31,8 +43,16 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
         { label: 'Time', fieldName: 'preferredTime', type: 'text' },
         {
             label: 'Status',
-            fieldName: 'statusDisplay',
-            type: 'text',
+            fieldName: 'status',
+            type: 'picklist',
+            typeAttributes: {
+                options: [
+                    { label: 'Active', value: 'Active' },
+                    { label: 'In Active', value: 'In Active' }
+                ],
+                value: { fieldName: 'status' },
+                context: { fieldName: 'id' }
+            },
             cellAttributes: { class: { fieldName: 'statusCssClass' } }
         }
     ];
@@ -46,6 +66,15 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
 
     // ── Object-schedule datatable columns ──
     objectScheduleColumns = [
+        {
+            label: 'Name',
+            fieldName: 'recordUrl',
+            type: 'url',
+            typeAttributes: {
+                label: { fieldName: 'name' },
+                target: '_blank'
+            }
+        },
         { label: 'Criteria', fieldName: 'dateField', type: 'text' },
         { 
             label: 'Frequency', 
@@ -55,8 +84,16 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
         },
         {
             label: 'Status',
-            fieldName: 'statusDisplay',
-            type: 'text',
+            fieldName: 'status',
+            type: 'picklist',
+            typeAttributes: {
+                options: [
+                    { label: 'Active', value: 'Active' },
+                    { label: 'In Active', value: 'In Active' }
+                ],
+                value: { fieldName: 'status' },
+                context: { fieldName: 'id' }
+            },
             cellAttributes: { class: { fieldName: 'statusCssClass' } }
         }
     ];
@@ -273,5 +310,38 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
 
     handleClose() {
         this.dispatchEvent(new CustomEvent('close'));
+    }
+
+    async handlePicklistChange(event) {
+        const { rowId, value } = event.detail;
+
+        try {
+            await updateScheduleStatus({
+                scheduleId: rowId,
+                status: value
+            });
+
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Success',
+                    message: 'Schedule status updated successfully.',
+                    variant: 'success'
+                })
+            );
+
+            // Reload both tables to reflect the change
+            this.loadActiveSchedules();
+            if (this.selectedObject) {
+                this.loadObjectSchedules();
+            }
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Error',
+                    message: error?.body?.message || 'Failed to update status.',
+                    variant: 'error'
+                })
+            );
+        }
     }
 }
