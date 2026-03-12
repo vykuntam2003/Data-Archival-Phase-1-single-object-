@@ -9,8 +9,14 @@ export default class ChildObjectSelectionModal extends LightningElement {
     @track childObjectSections = [];
     @track isLoading = true;
 
+    // Warning popup state
+    @track showWarningPopup = false;
+    @track warningUnselectedSummary = [];
+    @track warningTotalUnselectedRecords = 0;
+
     // Track selected IDs per child object
     _selectedMap = {}; // { childObjectName: Set<Id> }
+    _pendingProceedDetail = null;
 
     get selectedParentRecordCount() {
         return this.selectedParentRecordIds ? this.selectedParentRecordIds.length : 0;
@@ -210,13 +216,41 @@ export default class ChildObjectSelectionModal extends LightningElement {
             }
         });
 
+        const proceedDetail = {
+            selectedChildRecords,
+            unselectedChildRecords,
+            selectedChildSummary,
+            unselectedChildSummary
+        };
+
+        // If there are unselected records, show warning popup first
+        if (unselectedChildSummary.length > 0) {
+            this.warningUnselectedSummary = unselectedChildSummary;
+            this.warningTotalUnselectedRecords = unselectedChildSummary.reduce(
+                (sum, item) => sum + item.count, 0
+            );
+            this._pendingProceedDetail = proceedDetail;
+            this.showWarningPopup = true;
+        } else {
+            // All records selected — proceed directly
+            this.dispatchEvent(new CustomEvent('proceed', {
+                detail: proceedDetail
+            }));
+        }
+    }
+
+    handleWarningConfirm() {
+        // User acknowledged the warning — proceed
+        this.showWarningPopup = false;
         this.dispatchEvent(new CustomEvent('proceed', {
-            detail: {
-                selectedChildRecords,
-                unselectedChildRecords,
-                selectedChildSummary,
-                unselectedChildSummary
-            }
+            detail: this._pendingProceedDetail
         }));
+        this._pendingProceedDetail = null;
+    }
+
+    handleWarningCancel() {
+        // User wants to go back and change selection
+        this.showWarningPopup = false;
+        this._pendingProceedDetail = null;
     }
 }

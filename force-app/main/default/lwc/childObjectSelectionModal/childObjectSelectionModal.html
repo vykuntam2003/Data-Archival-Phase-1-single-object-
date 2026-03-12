@@ -196,4 +196,67 @@
         </div>
     </section>
     <div class="slds-backdrop slds-backdrop_open"></div>
+
+    <!-- ═══════════════════════════════════════════════════
+         WARNING POPUP — Unselected records will be deleted
+         ═══════════════════════════════════════════════════ -->
+    <template if:true={showWarningPopup}>
+        <div class="warning-overlay">
+            <div class="warning-card">
+
+                <!-- Warning Header -->
+                <div class="warning-header">
+                    <lightning-icon icon-name="utility:warning" variant="warning" size="medium"
+                        class="warning-icon">
+                    </lightning-icon>
+                    <h2 class="warning-title">Warning: Unselected Records Will Be Permanently Deleted</h2>
+                </div>
+
+                <!-- Warning Body -->
+                <div class="warning-body">
+                    <p class="warning-note">
+                        Only the <strong>selected</strong> child records will be archived and stored safely.
+                        The following <strong>unselected</strong> child objects and their records will be
+                        <strong>permanently deleted</strong> and <strong>cannot be recovered</strong>.
+                        We are <strong>not storing them anywhere</strong>.
+                    </p>
+
+                    <!-- Total Unselected Count Badge -->
+                    <div class="warning-count-badge">
+                        <lightning-icon icon-name="utility:ban" size="xx-small" class="slds-m-right_xx-small">
+                        </lightning-icon>
+                        <span>{warningTotalUnselectedRecords} record(s) across {warningUnselectedSummary.length} child object(s) will NOT be archived</span>
+                    </div>
+
+                    <!-- Unselected Objects List with Record Counts -->
+                    <div class="warning-list-container">
+                        <template for:each={warningUnselectedSummary} for:item="item">
+                            <div key={item.objectName} class="warning-list-item">
+                                <lightning-icon icon-name="utility:delete" size="xx-small"
+                                    class="delete-icon slds-m-right_x-small">
+                                </lightning-icon>
+                                <span class="obj-label">{item.objectLabel}</span>
+                                <span class="obj-api">({item.objectName})</span>
+                                <span class="obj-count">&mdash; {item.count} record(s)</span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Warning Footer -->
+                <div class="warning-footer">
+                    <lightning-button label="Go Back" variant="neutral"
+                        icon-name="utility:back" onclick={handleWarningCancel}
+                        class="slds-m-right_x-small">
+                    </lightning-button>
+                    <lightning-button label="I Understand, Proceed" variant="destructive"
+                        icon-name="utility:check" icon-position="left"
+                        onclick={handleWarningConfirm}>
+                    </lightning-button>
+                </div>
+
+            </div>
+        </div>
+    </template>
+
 </template>
