@@ -34,9 +34,9 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
         },
         { label: 'Object', fieldName: 'objectName', type: 'text' },
         { label: 'Criteria', fieldName: 'dateField', type: 'text' },
-        { 
-            label: 'Frequency', 
-            fieldName: 'frequency', 
+        {
+            label: 'Frequency',
+            fieldName: 'frequency',
             type: 'text',
             cellAttributes: { class: { fieldName: 'frequencyCssClass' } }
         },
@@ -76,9 +76,9 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
             }
         },
         { label: 'Criteria', fieldName: 'dateField', type: 'text' },
-        { 
-            label: 'Frequency', 
-            fieldName: 'frequency', 
+        {
+            label: 'Frequency',
+            fieldName: 'frequency',
             type: 'text',
             cellAttributes: { class: { fieldName: 'frequencyCssClass' } }
         },
@@ -167,7 +167,7 @@ export default class ArchiveScheduleObjectModal extends LightningElement {
     // ───────────────────────────────────
     //  GETTERS & HELPERS
     // ───────────────────────────────────
-    
+
     getFrequencyBadgeClass(frequency) {
         if (!frequency) return 'slds-badge';
         const freq = frequency.toUpperCase();

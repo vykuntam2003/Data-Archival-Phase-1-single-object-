@@ -12,29 +12,18 @@ export default class CustomDatatable extends LightningDatatable {
 
     connectedCallback() {
         super.connectedCallback();
-        this.template.addEventListener('change', this.handlePicklistValueChange.bind(this));
+        this.template.addEventListener('picklistchanged', this.handlePicklistChanged.bind(this));
     }
 
-    handlePicklistValueChange(event) {
-        const combobox = event.target;
-        if (combobox && combobox.tagName === 'LIGHTNING-COMBOBOX') {
-            const newValue = event.detail.value;
-
-            // Find the row id by traversing the datatable's internal structure
-            const row = combobox.closest('tr');
-            if (row) {
-                const rowKeyAttr = row.getAttribute('data-row-key-value');
-                if (rowKeyAttr) {
-                    this.dispatchEvent(new CustomEvent('picklistchange', {
-                        composed: true,
-                        bubbles: true,
-                        detail: {
-                            rowId: rowKeyAttr,
-                            value: newValue
-                        }
-                    }));
-                }
+    handlePicklistChanged(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('picklistchange', {
+            composed: true,
+            bubbles: true,
+            detail: {
+                rowId: event.detail.rowId,
+                value: event.detail.value
             }
-        }
+        }));
     }
 }

@@ -347,6 +347,8 @@
 
 .warning-icon {
     flex-shrink: 0;
+    /* --sds-c-icon-color-foreground-default: #e8a409; */
+    --sds-c-icon-color-foreground-default: #fff;
 }
 
 .warning-title {

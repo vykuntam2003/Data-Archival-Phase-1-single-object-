@@ -2,10 +2,11 @@
     <section class="slds-modal slds-fade-in-open">
         <div class="slds-modal__container">
 
-            <header class="slds-modal__header">
+            <header class="slds-modal__header modal-header-blue">
 
-                <button class="slds-button slds-button_icon slds-modal__close" title="Close" onclick={handleClose}>
-                    <lightning-icon icon-name="utility:close" alternative-text="close" size="small">
+                <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" title="Close"
+                    onclick={handleClose}>
+                    <lightning-icon icon-name="utility:close" alternative-text="close" size="small" variant="inverse">
                     </lightning-icon>
                 </button>
 
@@ -86,7 +87,8 @@
                         <template if:true={showObjectScheduleTable}>
                             <div class="schedule-table-wrapper slds-m-top_small">
                                 <c-custom-datatable key-field="id" data={objectSchedules}
-                                    columns={objectScheduleColumns} hide-checkbox-column onpicklistchange={handlePicklistChange}>
+                                    columns={objectScheduleColumns} hide-checkbox-column
+                                    onpicklistchange={handlePicklistChange}>
                                 </c-custom-datatable>
                             </div>
 
